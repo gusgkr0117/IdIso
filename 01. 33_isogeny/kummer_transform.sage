@@ -271,31 +271,37 @@ def BFT_evaluation(kernel, points):
 
     return Jnew, codomain_points
 
-    def hash_new(message, B):
-        J = B[0].parent()
-        kernel = kernel_generators_from_message(message, B)
-        n = 80 #exp3
-        pos = 0
-        indices = [0]
-        for i in [0..n-1]:
-            gap = n-i-1 - indices[pos]
-            if gap == 0:
-                kernel2 = [J(KummerToJac(D, f)) for D in kernel_aux[2*pos..2*pos+1]]
-                if indices[pos] != 0:
-                    indices = indices[:-1]
-                    kernel_aux = kernel_aux[:-2]
-                    pos = pos - 1
-            elif gap == 1:
-                kernel2 = [3*D for D in kernel_aux[2*pos..2*pos+1]]
-                if indices[pos] != 0:
-                    indices = indices[:-1]
-                    kernel_aux = kernel_aux[:-2]
-                    pos = pos - 1
-            else:
-                new_ind = indices[pos] + floor(gap/2)
-                new_aux = kernel_aux[2*pos..2*pos+1]
-                new_aux = [3^floor(gap/2)*D for D in new_aux]
-                indices.append(new_ind)
-                kernel_aux = kernel_aux + []
+def hash_new(message, B):
+    J = B[0].parent().curve().jacobian()
+    kummer_surface = KummerSurface(J)
+    kernel = kernel_generators_from_message(message, B)
+    kernel_aux = [kummer_surface(JacToKummer(D, f)) for D in kernel]
+    n = 80 #exp3
+    pos = 0
+    indices = [0]
+    for i in [0..n-1]:
+        gap = n-i-1 - indices[pos]
+        if gap == 0:
+            kernel2 = [J(KummerToJac(D, f)) for D in kernel_aux[2*pos..2*pos+1]]
+            if indices[pos] != 0:
+                indices = indices[:-1]
+                kernel_aux = kernel_aux[:-2]
+                pos = pos - 1
+        elif gap == 1:
+            kernel2 = [3*J(KummerToJac(D, f)) for D in kernel_aux[2*pos..2*pos+1]]
+            if indices[pos] != 0:
+                indices = indices[:-1]
+                kernel_aux = kernel_aux[:-2]
+                pos = pos - 1
+        else:
+            new_ind = indices[pos] + floor(gap/2)
+            new_aux = [3^floor(gap/2)*J(KummerToJac(D, f)) for D in kernel_aux[2*pos..2*pos+1]]
+            indices.append(new_ind)
+            kernel_aux = kernel_aux + [kummer_surface(JacToKummer(D, f)) for D in new_aux]
+            pos = pos + 1
+            new_aux = [3^ceil(gap/2)*D for D in new_aux]
+            kernel2 = new_aux
+        print(kernel2)
+        J, kernel_aux = BFT_evaluation(kernel2, kernel_aux)
 
-
+    return Curve(J).igusa_clebsch_invariants()
