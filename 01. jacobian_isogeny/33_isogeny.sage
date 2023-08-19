@@ -1,8 +1,41 @@
+def JacDbl(Div):
+    """
+    Computes the double of a jacobian point (u,v)
+    given by Mumford coordinates: except that u is not required
+    to be monic, to avoid redundant reduction during repeated doubling
+    """
+    h = Div.parent().curve().hyperelliptic_polynomials()[0]
+    u, v = Div[0], Div[1]
+    assert u.degree() == 2
+    q, r = u.quo_rem(2*v)
+    if r[0] == 0:
+        a = q^2
+        b = (v + (h - v^2)//v) % a
+        return a, b
+    else:
+        h3 = 1 / (-r[0]) * q
+        a = u^2
+        b = (v + h3 * (h - v^2)) % a
+        Dx = (h - b^2) // a
+        Dy = (-b) % Dx
+        return Dx, Dy
+
+def JacMul(Div, n):
+    J = Div.parent().curve().jacobian()
+    tDiv = Div
+    result = J(0)
+    while n > 0 :
+        if n % 2 == 1:
+            result = result + tDiv
+        tDiv = J(JacDbl(tDiv))
+        n = n // 2
+    return result
+
 def JacToKummer(Div,F):
 	#only implemented for the generic case
 	f0,f1,f2,f3,f4,f5,f6 = F.coefficients(sparse=False)
 	[A,B] = Div
-	[a0,a1,a2] = A.coefficients()
+	[a0,a1,a2] = A.monic().coefficients()
 	[b0,b1] = B.coefficients()
 	xi0 = 1
 	xi1 = -a1
@@ -15,6 +48,7 @@ def JacToKummer(Div,F):
 def KummerToJac(Kum,F):
     f0,f1,f2,f3,f4,f5,f6 = F.coefficients(sparse=False)
     xi0, xi1, xi2, xi3 = Kum
+    if xi0 == 0: return [1, 0]
     xi0, xi1, xi2, xi3 = 1, xi1/xi0, xi2/xi0, xi3/xi0
     phi = 2*f0*xi0^3 + f1*xi0^2*xi1 + 2*f2*xi0^2*xi2 + f3*xi0*xi1*xi2 + 2*f4*xi0*xi2^2 + f5*xi1*xi2^2 + 2*f6*xi2^3
     y1y2 = (phi - xi3 * (xi1^2-4*xi0*xi2)) / 2
@@ -25,13 +59,24 @@ def KummerToJac(Kum,F):
     b12 = (y12py22 - 2*y1y2)/(xi1^2 - 4*xi2)
     b1 = sqrt(b12)
     b0 = (y1py2-(b1*xi1))/2
+
+    if B != (b1*x + b0)^2 % A:
+        b1 = -b1
+        b0 = (y1py2-(b1*xi1))/2
+
+    if B != (b1*x + b0)^2 % A:
+        b1 = -b1
+        y1py2 = -y1py2
+        b0 = (y1py2-(b1*xi1))/2
+
     B = b1*x + b0
 
     return [A, -B]
 
+
 def kernel_generators_from_message(message, B):
-    T1 = B[0] + message[0]*B[2] + message[1]*B[3]
-    T2 = B[1] + message[1]*B[2] + message[2]*B[3]
+    T1 = B[0] + JacMul(B[2], message[0]) + JacMul(B[3], message[1])
+    T2 = B[1] + JacMul(B[2], message[1]) + JacMul(B[3], message[2])
     return [T1, T2]
 
 def get_cubic_Gx(D):
@@ -136,6 +181,8 @@ def get_codomain_curve_polynomial(rst):
     return -3*Fco;
 
 def get_codomain_Kummer_coefficients(rst):
+	INV2 = K(1/2); INV3 = K(1/3); INV4 = K(1/4); INV16 = K(1/16); INV216 = K(1/216); INV864 = K(1/864);
+	INV103680 = K(1/103680); INV213408 = K(1/213408); INV13837824 = K(1/13837824); INV8115344640 = K(1/8115344640); INV327019680 = K(1/327019680);
 	r,s,t = rst
 	e1 = s
 	e2 = t
@@ -271,37 +318,78 @@ def BFT_evaluation(kernel, points):
 
     return Jnew, codomain_points
 
-def hash_new(message, B):
-    J = B[0].parent().curve().jacobian()
+def isogeny_33(J_kernel, eval_points, n):
+    C = J_kernel[0].parent().curve()
+    J = C.jacobian()
+    func = C.hyperelliptic_polynomials()[0]
     kummer_surface = KummerSurface(J)
-    kernel = kernel_generators_from_message(message, B)
-    kernel_aux = [kummer_surface(JacToKummer(D, f)) for D in kernel]
-    n = 80 #exp3
     pos = 0
     indices = [0]
+    eval_length = len(eval_points)
+    kernel_aux = [kummer_surface(JacToKummer(D, func)) for D in eval_points]
+    kernel_aux = kernel_aux + [kummer_surface(JacToKummer(D, func)) for D in J_kernel]
     for i in [0..n-1]:
+        kummer_surface = KummerSurface(J)
+        func = J.curve().hyperelliptic_polynomials()[0]
         gap = n-i-1 - indices[pos]
         if gap == 0:
-            kernel2 = [J(KummerToJac(D, f)) for D in kernel_aux[2*pos..2*pos+1]]
+            kernel2 = [J(KummerToJac(D, func)) for D in kernel_aux[eval_length + 2*pos: eval_length + 2*pos+2]]
             if indices[pos] != 0:
                 indices = indices[:-1]
                 kernel_aux = kernel_aux[:-2]
                 pos = pos - 1
         elif gap == 1:
-            kernel2 = [3*J(KummerToJac(D, f)) for D in kernel_aux[2*pos..2*pos+1]]
+            kernel2 = [3*J(KummerToJac(D, func)) for D in kernel_aux[eval_length + 2*pos: eval_length + 2*pos+2]]
             if indices[pos] != 0:
                 indices = indices[:-1]
                 kernel_aux = kernel_aux[:-2]
                 pos = pos - 1
         else:
             new_ind = indices[pos] + floor(gap/2)
-            new_aux = [3^floor(gap/2)*J(KummerToJac(D, f)) for D in kernel_aux[2*pos..2*pos+1]]
+            new_aux = [JacMul(J(KummerToJac(D, func)), 3^floor(gap/2)) for D in kernel_aux[eval_length + 2*pos:eval_length + 2*pos+2]]
             indices.append(new_ind)
-            kernel_aux = kernel_aux + [kummer_surface(JacToKummer(D, f)) for D in new_aux]
+            kernel_aux = kernel_aux + [kummer_surface(JacToKummer(D, func)) for D in new_aux]
             pos = pos + 1
-            new_aux = [3^ceil(gap/2)*D for D in new_aux]
+            new_aux = [JacMul(D, 3^ceil(gap/2)) for D in new_aux]
             kernel2 = new_aux
-        print(kernel2)
         J, kernel_aux = BFT_evaluation(kernel2, kernel_aux)
+    func = J.curve().hyperelliptic_polynomials()[0]
+    return J, [J(KummerToJac(D, func)) for D in kernel_aux[:eval_length]]
 
-    return Curve(J).igusa_clebsch_invariants()
+def hash_new(message, B):
+    J = B[0].parent().curve().jacobian()
+    kernel = kernel_generators_from_message(message, B)
+    func = C.hyperelliptic_polynomials()[0]
+    kummer_surface = KummerSurface(J)
+    n = 80
+    pos = 0
+    indices = [0]
+    kernel_aux = [kummer_surface(JacToKummer(D, func)) for D in kernel]
+    for i in [0..n-1]:
+        kummer_surface = KummerSurface(J)
+        func = J.curve().hyperelliptic_polynomials()[0]
+        gap = n-i-1 - indices[pos]
+        if gap == 0:
+            kernel2 = [J(KummerToJac(D, func)) for D in kernel_aux[2*pos:2*pos+2]]
+            if indices[pos] != 0:
+                indices = indices[:-1]
+                kernel_aux = kernel_aux[:-2]
+                pos = pos - 1
+        elif gap == 1:
+            kernel2 = [3*J(KummerToJac(D, func)) for D in kernel_aux[2*pos:2*pos+2]]
+            if indices[pos] != 0:
+                indices = indices[:-1]
+                kernel_aux = kernel_aux[:-2]
+                pos = pos - 1
+        else:
+            new_ind = indices[pos] + floor(gap/2)
+            new_aux = [JacMul(J(KummerToJac(D, func)), 3^floor(gap/2)) for D in kernel_aux[2*pos:2*pos+2]]
+            indices.append(new_ind)
+            kernel_aux = kernel_aux + [kummer_surface(JacToKummer(D, func)) for D in new_aux]
+            pos = pos + 1
+            new_aux = [JacMul(D, 3^ceil(gap/2)) for D in new_aux]
+            kernel2 = new_aux
+        J, kernel_aux = BFT_evaluation(kernel2, kernel_aux)
+        print("#" + str(i))
+    return J.curve().igusa_clebsch_invariants()
+
