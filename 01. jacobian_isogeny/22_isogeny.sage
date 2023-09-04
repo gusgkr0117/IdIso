@@ -247,6 +247,7 @@ def Gluing22(E1, E2, kernel, eval_points):
 
     return H, [isogeny(D) for D in eval_points], isogeny
 
+
 def FromJacToJac(h, D1, D2, a, powers, eval_points):
     R, x = h.parent().objgen()
     K = R.base()
