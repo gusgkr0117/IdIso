@@ -3,7 +3,7 @@ from random import randint
 
 
 def find_prime(n, ell):
-    d = 5
+    d = 6
 
     while True:
         two_factor = 2 ^ n
