@@ -127,24 +127,17 @@ class Isogeny:
         except:
             raise "The point must be on the domain curve"
         a, b = xyBIDIM(self.domain_P, self.domain_Q, point)
-
+        assert point == a * self.domain_P + b * self.domain_Q
         R = a * self.codomain_P + b * self.codomain_Q
         return R
 
     def dual_isogeny(self):
-        cofactor_P = self.domain_P.order() // self.degree
-        cofactor_Q = self.domain_Q.order() // self.degree
-        R = cofactor_P * self.codomain_P + cofactor_Q * self.codomain_Q
-        if R.is_zero():
-            if not self.codomain_P.is_zero():
-                R = cofactor_P * self.codomain_P
-            else:
-                R = cofactor_Q * self.codomain_Q
-
+        cofactor = self.domain_P.order() // self.degree
+        R = cofactor * self.codomain_P + cofactor * self.codomain_Q
+        print("kernel of dual :", R.order())
         order = R.order()
-        assert order % self.degree == 0, "Unreachable : order is wrong"
-        cofactor = order // self.degree
-        return Isogeny(self.codomain_coeff, cofactor * R)
+        assert order == self.degree, "Unreachable : order is wrong"
+        return Isogeny(self.codomain_coeff, R)
 
 
 # Evaluate a point of E0 through a O0 endomorphism
@@ -236,6 +229,8 @@ def eval_endomorphism(O1_element, point: EllipticCurvePoint, E0_isogeny: Isogeny
     result_point = E1(0)
 
     for i in range(4):
+        if coordinate[i] == 0:
+            continue
         eval_point = point
         eval_point = E0_dual_isogeny.eval(eval_point)
         assert E0_dual_isogeny.codomain_curve.is_on_curve(
