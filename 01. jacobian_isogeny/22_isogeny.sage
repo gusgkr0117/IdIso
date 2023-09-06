@@ -247,6 +247,110 @@ def Gluing22(E1, E2, kernel, eval_points):
 
     return H, [isogeny(D) for D in eval_points], isogeny
 
+def Splitting22(J_kernel, eval_points):
+    G1 = J_kernel[0][0]
+    G2 = J_kernel[1][0]
+    h = J_kernel[0].parent().curve().hyperelliptic_polynomials()[0]
+    G3, r3 = h.quo_rem(G1*G2)
+    assert r3 == 0
+    delta = Matrix(G.padded_list(3) for G in (G1, G2, G3))
+    assert delta.determinant() == 0
+
+    """
+    Construct the "split" isogeny from Jac(y^2 = G1*G2*G3)
+    to a product of elliptic curves.
+
+    This computation is the same as Benjamin Smith
+    see 8.3 in http://iml.univ-mrs.fr/~kohel/phd/thesis_smith.pdf
+    """
+    h = G1*G2*G3
+    R = h.parent()
+    Fp2 = R.base()
+    x = R.gen()
+
+    M = Matrix(G.padded_list(3) for G in (G1,G2,G3))
+    # Find homography
+    u, v, w = M.right_kernel().gen()
+    d = u/2
+    (ad, _), (b, _) = (x**2 - v*x + w*d/2).roots()
+    a = ad/d
+    # Apply transform G(x) -> G((a*x+b)/(x+d))*(x+d)^2
+    # The coefficients of x^2 are M * (1, a, a^2)
+    # The coefficients of 1 are M * (d^2, b*d, b^2)
+    H11, H21, H31 = M * vector([1, a, a*a])
+    H10, H20, H30 = M * vector([d*d, b*d, b*b])
+    assert G1((a*x+b)/(x+d))*(x+d)**2 == H11*x**2+H10
+
+    h2 = (H11*x**2+H10)*(H21*x**2+H20)*(H31*x**2+H30)
+    H2 = HyperellipticCurve(h2)
+    p1 = (H11*x+H10)*(H21*x+H20)*(H31*x+H30)
+    p2 = (H11+H10*x)*(H21+H20*x)*(H31+H30*x)
+    # We will need to map to actual elliptic curve
+    p1norm = (x + H10*H21*H31)*(x + H20*H11*H31)*(x + H30*H11*H21)
+    p2norm = (x + H11*H20*H30)*(x + H21*H10*H30)*(x + H31*H10*H20)
+    E1 = EllipticCurve(Fp, [0, p1norm[2], 0, p1norm[1], p1norm[0]])
+    E2 = EllipticCurve(Fp, [0, p2norm[2], 0, p2norm[1], p2norm[0]])
+
+    def morphE1(x, y):
+        # from y^2=p1 to y^2=p1norm
+        return (H11*H21*H31*x, H11*H21*H31*y)
+    def morphE2(x, y):
+        # from y^2=p1 to y^2=p2norm
+        return (H10*H20*H30*x, H10*H20*H30*y)
+    # The morphisms are:
+    # inverse homography:
+    # H->H2: x, y => ((b-dx) / (x-a), y/(x-a)^3)
+    # then H2->E1:(x,y) => (x^2,y)
+    #   or H2->E2:(x,y) => (1/x^2,y/x^3)
+    def isogeny(D):
+        HyperellipticCurve(h).jacobian()(D)
+        # To map a divisor, perform the change of coordinates
+        # on Mumford coordinates
+        U, V = D
+        # apply homography
+        # y = v1 x + v0 =>
+        U_ = U[0] * (x+d)**2 + U[1]*(a*x+b)*(x+d) + U[2]*(a*x+b)**2
+        V_ = V[0] * (x+d)**3 + V[1]*(a*x+b)*(x+d)**2
+        V_ = V_ % U_
+        v1, v0 = V_[1], V_[0]
+        # prepare symmetric functions
+        s = - U_[1] / U_[2]
+        p = U_[0] / U_[2]
+        # compute Mumford coordinates on E1
+        # Points x1, x2 map to x1^2, x2^2
+        U1 = x**2 - (s*s - 2*p)*x + p**2
+        # y = v1 x + v0 becomes (y - v0)^2 = v1^2 x^2
+        # so 2v0 y-v0^2 = p1 - v1^2 xH^2 = p1 - v1^2 xE1
+        V1 = (p1 - v1**2 * x + v0**2) / (2*v0)
+        # Reduce Mumford coordinates to get a E1 point
+        V1 = V1 % U1
+        U1red = (p1 - V1**2) // U1
+        xP1 = -U1red[0] / U1red[1]
+        yP1 = V1(xP1)
+        assert yP1**2 == p1(xP1)
+        # Same for E2
+        # Points x1, x2 map to 1/x1^2, 1/x2^2
+        U2 = x**2 - (s*s-2*p)/p**2*x + 1/p**2
+        # yE = y1/x1^3, xE = 1/x1^2
+        # means yE = y1 x1 xE^2
+        # (yE - y1 x1 xE^2)(yE - y2 x2 xE^2) = 0
+        # p2 - yE (x1 y1 + x2 y2) xE^2 + (x1 y1 x2 y2 xE^4) = 0
+        V21 = x**2 * (v1 * (s*s-2*p) + v0*s)
+        V20 = p2 + x**4 * (p*(v1**2*p + v1*v0*s + v0**2))
+        # V21 * y = V20
+        _, V21inv, _ = V21.xgcd(U2)
+        V2 = (V21inv * V20) % U2
+        # assert V2**2 % U2 == p2 % U2
+        # Reduce coordinates
+        U2red = (p2 - V2**2) // U2
+        xP2 = -U2red[0] / U2red[1]
+        yP2 = V2(xP2)
+        # assert yP2**2 == p2(xP2)
+
+        return E1(morphE1(xP1, yP1)), E2(morphE2(xP2, yP2))
+
+    print(eval_points)
+    return (E1, E2), [isogeny((D[0], D[1])) for D in eval_points]
 
 def FromJacToJac(h, D1, D2, a, powers, eval_points):
     R, x = h.parent().objgen()
