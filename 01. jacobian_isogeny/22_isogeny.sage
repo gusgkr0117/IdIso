@@ -325,9 +325,14 @@ def Splitting22(J_kernel, eval_points):
         # Reduce Mumford coordinates to get a E1 point
         V1 = V1 % U1
         U1red = (p1 - V1**2) // U1
-        xP1 = -U1red[0] / U1red[1]
-        yP1 = V1(xP1)
-        assert yP1**2 == p1(xP1)
+        if U1red[1] == 0 or V1 == 0: result1 = E1(0)
+        else:
+            xP1 = -U1red[0] / U1red[1]
+            yP1 = V1(xP1)
+            assert yP1**2 == p1(xP1)
+            result1 = E1(morphE1(xP1, yP1))
+        
+
         # Same for E2
         # Points x1, x2 map to 1/x1^2, 1/x2^2
         U2 = x**2 - (s*s-2*p)/p**2*x + 1/p**2
@@ -343,13 +348,15 @@ def Splitting22(J_kernel, eval_points):
         # assert V2**2 % U2 == p2 % U2
         # Reduce coordinates
         U2red = (p2 - V2**2) // U2
-        xP2 = -U2red[0] / U2red[1]
-        yP2 = V2(xP2)
-        # assert yP2**2 == p2(xP2)
+        if U2red == 0 or V2 == 0 : result2 = E2(0)
+        else:
+            xP2 = -U2red[0] / U2red[1]
+            yP2 = V2(xP2)
+            assert yP2**2 == p2(xP2)
+            result2 = E2(morphE2(xP2, yP2))
 
-        return E1(morphE1(xP1, yP1)), E2(morphE2(xP2, yP2))
+        return result1, result2
 
-    print(eval_points)
     return (E1, E2), [isogeny((D[0], D[1])) for D in eval_points]
 
 def FromJacToJac(h, D1, D2, a, powers, eval_points):
