@@ -112,6 +112,15 @@ class Isogeny:
         self.codomain_Q = self.codomain_curve.lift_x(
             eval_point[1] ^ self.degree * (hs_Q2 / hs_Q1) ^ 2)
 
+        order = max(self.domain_P.order(), self.domain_Q.order())
+        domain_pairing = self.domain_P.weil_pairing(self.domain_Q, order)
+        codomain_pairing = self.codomain_P.weil_pairing(self.codomain_Q, order)
+        if domain_pairing ^ self.degree != codomain_pairing:
+            self.codomain_P = -self.codomain_P
+            assert domain_pairing ^ self.degree * codomain_pairing == 1
+        else:
+            assert domain_pairing ^ self.degree == codomain_pairing
+
     def __init__(self, coeff: FiniteFieldElement, kernel: EllipticCurvePoint):
         self.domain_curve = EllipticCurve(Fp, [0, coeff, 0, 1, 0])
         assert self.domain_curve.is_on_curve(kernel[0], kernel[1]) or kernel.is_zero(
@@ -132,16 +141,43 @@ class Isogeny:
         return R
 
     def dual_isogeny(self):
-        cofactor = self.domain_P.order() // self.degree
-        R = cofactor * self.codomain_P + cofactor * self.codomain_Q
-        print("kernel of dual :", R.order())
-        order = R.order()
-        assert order == self.degree, "Unreachable : order is wrong"
-        return Isogeny(self.codomain_coeff, R)
+        cofactor_P = self.domain_P.order() // self.degree
+        cofactor_Q = self.domain_Q.order() // self.degree
+        codomain_P = cofactor_P * self.codomain_P
+        codomain_Q = cofactor_Q * self.codomain_Q
+        assert (not codomain_P.is_zero()) or (not codomain_Q.is_zero())
+        if codomain_P.is_zero():
+            return Isogeny(self.codomain_coeff, codomain_Q)
+        else:
+            return Isogeny(self.codomain_coeff, codomain_P)
 
+
+class IsogenyChain:
+    chain: list = []
+    domain_curve: EllipticCurve
+    codomain_curve: EllipticCurve
+    degree: Integer
+
+    def __init__(self, _chain: list):
+        self.chain = _chain
+        self.codomain_curve = _chain[-1].codomain_curve
+        self.domain_curve = _chain[0].domain_curve
+        self.degree = 1
+        for deg in [c.degree for c in self.chain]:
+            self.degree *= deg
+
+    def append(self, forward: Isogeny):
+        self.chain.append(forward)
+
+    def eval(self, point: EllipticCurvePoint) -> EllipticCurvePoint:
+        for isog in self.chain:
+            point = isog.eval(point)
+        return point
 
 # Evaluate a point of E0 through a O0 endomorphism
 # only 2 is available as denominator
+
+
 def O0_eval_endomorphism(O0_element: QuaternionAlgebraElement, point: EllipticCurvePoint) -> EllipticCurvePoint:
     try:
         point = E0((point[0], point[1]))
@@ -209,7 +245,7 @@ def left_O0_ideal_to_isogeny_kernel(ideal: QuaternionAlgebraIdeal) -> EllipticCu
 #
 
 
-def eval_endomorphism(O1_element, point: EllipticCurvePoint, E0_isogeny: Isogeny, E0_dual_isogeny: Isogeny) -> EllipticCurvePoint:
+def eval_endomorphism(O1_element, point: EllipticCurvePoint, E0_isogeny: IsogenyChain, E0_dual_isogeny: IsogenyChain) -> EllipticCurvePoint:
     E1 = E0_isogeny.codomain_curve
     assert E1.is_on_curve(point[0], point[1]) or point.is_zero(
     ), "point is not on the curve E1"
