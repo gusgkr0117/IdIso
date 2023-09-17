@@ -81,7 +81,7 @@ def kernel_generators_from_message(message, B):
 
 def get_cubic_Gx(D):
     assert((3*D).is_zero())
-    Kab.<alpha, beta, lambda_> = PolynomialRing(K, 3)
+    Kab.<alpha, beta, lambda_> = PolynomialRing(Fp, 3)
     Kx.<x> = PolynomialRing(Kab)
     F = D.parent().curve().hyperelliptic_polynomials()[0]
     pol = F - (Kx(D[1]) + (alpha * x + beta) * Kx(D[0]))^2 - lambda_ * (Kx(D[0])^3)
@@ -92,7 +92,7 @@ def get_cubic_Gx(D):
     return Gx
 
 def get_rst_transform(Ti):
-    Knew.<newr, news, newt, b, c, d, e, newtinv> = PolynomialRing(K, 8, order='degrevlex')
+    Knew.<newr, news, newt, b, c, d, e, newtinv> = PolynomialRing(Fp, 8, order='degrevlex')
     Kx.<x> = PolynomialRing(Knew)
 
     T1, T2 = Ti[0], Ti[1]
@@ -181,8 +181,8 @@ def get_codomain_curve_polynomial(rst):
     return -3*Fco;
 
 def get_codomain_Kummer_coefficients(rst):
-	INV2 = K(1/2); INV3 = K(1/3); INV4 = K(1/4); INV16 = K(1/16); INV216 = K(1/216); INV864 = K(1/864);
-	INV103680 = K(1/103680); INV213408 = K(1/213408); INV13837824 = K(1/13837824); INV8115344640 = K(1/8115344640); INV327019680 = K(1/327019680);
+	INV2 = Fp(1/2); INV3 = Fp(1/3); INV4 = Fp(1/4); INV16 = Fp(1/16); INV216 = Fp(1/216); INV864 = Fp(1/864);
+	INV103680 = Fp(1/103680); INV213408 = Fp(1/213408); INV13837824 = Fp(1/13837824); INV8115344640 = Fp(1/8115344640); INV327019680 = Fp(1/327019680);
 	r,s,t = rst
 	e1 = s
 	e2 = t
