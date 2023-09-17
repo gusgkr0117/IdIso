@@ -46,6 +46,7 @@ def JacToKummer(Div,F):
 	return [xi0,xi1,xi2,xi3]
 
 def KummerToJac(Kum,F):
+    Kx.<x> = PolynomialRing(Fp)
     f0,f1,f2,f3,f4,f5,f6 = F.coefficients(sparse=False)
     xi0, xi1, xi2, xi3 = Kum
     if xi0 == 0: return [1, 0]
