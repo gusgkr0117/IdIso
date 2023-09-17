@@ -1,4 +1,4 @@
-def JacDbl(Div):
+def JacDbl3(Div):
     """
     Computes the double of a jacobian point (u,v)
     given by Mumford coordinates: except that u is not required
@@ -27,7 +27,7 @@ def JacMul(Div, n):
     while n > 0 :
         if n % 2 == 1:
             result = result + tDiv
-        tDiv = J(JacDbl(tDiv))
+        tDiv = J(JacDbl3(tDiv))
         n = n // 2
     return result
 
