@@ -321,18 +321,20 @@ def Splitting22(J_kernel, eval_points):
         U1 = x**2 - (s*s - 2*p)*x + p**2
         # y = v1 x + v0 becomes (y - v0)^2 = v1^2 x^2
         # so 2v0 y-v0^2 = p1 - v1^2 xH^2 = p1 - v1^2 xE1
-        V1 = (p1 - v1**2 * x + v0**2) / (2*v0)
-        # Reduce Mumford coordinates to get a E1 point
-        V1 = V1 % U1
-        U1red = (p1 - V1**2) // U1
-        if U1red[1] == 0 or V1 == 0: result1 = E1(0)
+        if v0 == 0 :
+            result1 = E1(0)
         else:
-            xP1 = -U1red[0] / U1red[1]
-            yP1 = V1(xP1)
-            assert yP1**2 == p1(xP1)
-            result1 = E1(morphE1(xP1, yP1))
+            V1 = (p1 - v1**2 * x + v0**2) / (2*v0)
+            # Reduce Mumford coordinates to get a E1 point
+            V1 = V1 % U1
+            U1red = (p1 - V1**2) // U1
+            if U1red[1] == 0 or V1 == 0: result1 = E1(0)
+            else:
+                xP1 = -U1red[0] / U1red[1]
+                yP1 = V1(xP1)
+                assert yP1**2 == p1(xP1)
+                result1 = E1(morphE1(xP1, yP1))
         
-
         # Same for E2
         # Points x1, x2 map to 1/x1^2, 1/x2^2
         U2 = x**2 - (s*s-2*p)/p**2*x + 1/p**2
