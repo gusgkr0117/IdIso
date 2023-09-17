@@ -9,9 +9,6 @@ from sage.schemes.elliptic_curves.ell_finite_field import EllipticCurve_finite_f
 from sage.rings.finite_rings.element_pari_ffelt import FiniteFieldElement_pari_ffelt as FiniteFieldElement
 from sage.rings.integer import Integer
 
-load('const.sage')
-load('quaternion_tools.sage')
-
 def get_basis(E: EllipticCurve, N: Integer):
     assert (prime^2 - 1) % N == 0
     P, Q = E(0), E(0)
