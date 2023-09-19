@@ -46,7 +46,6 @@ def JacToKummer(Div,F):
 	return [xi0,xi1,xi2,xi3]
 
 def KummerToJac(Kum,F):
-    Kx.<x> = PolynomialRing(Fp)
     f0,f1,f2,f3,f4,f5,f6 = F.coefficients(sparse=False)
     xi0, xi1, xi2, xi3 = Kum
     if xi0 == 0: return [1, 0]
@@ -81,19 +80,21 @@ def kernel_generators_from_message(message, B):
     return [T1, T2]
 
 def get_cubic_Gx(D):
+    # print("get cubic Gx input :", D)
     assert((3*D).is_zero())
     Kab.<alpha, beta, lambda_> = PolynomialRing(Fp, 3)
     Kx.<x> = PolynomialRing(Kab)
     F = D.parent().curve().hyperelliptic_polynomials()[0]
     pol = F - (Kx(D[1]) + (alpha * x + beta) * Kx(D[0]))^2 - lambda_ * (Kx(D[0])^3)
-    GB = ideal([pol[6], pol[5], pol[4], pol[3]]).groebner_basis()
+    GB = ideal([pol[0], pol[1], pol[2], pol[3]]).groebner_basis()
     alpha = -GB[0].coefficients()[1]
     beta = -GB[1].coefficients()[1]
     Gx = D[1] + (alpha*x + beta)*D[0]
+    # print("get cubic Gx output :", Gx)
     return Gx
 
 def get_rst_transform(Ti):
-    Knew.<newr, news, newt, b, c, d, e, newtinv> = PolynomialRing(Fp, 8, order='degrevlex')
+    Knew.<newr, news, newt, b, c, d, e1, e2, newtinv> = PolynomialRing(Fp, 9, order='degrevlex')
     Kx.<x> = PolynomialRing(Knew)
 
     T1, T2 = Ti[0], Ti[1]
@@ -106,11 +107,11 @@ def get_rst_transform(Ti):
 
     G1 = ((news - news*newt - 1)*x^3 + 3*news*(newr - newt)*x^2 + 3*news*newr*(newr - newt)*x - news*newt^2 + news*newr^3 + newt)
     Gx1eval = Kx((Gx1.subs(x=((x+b)/(c*x+d))) * (c*x+d)^3).numerator())
-    I1 = [(e * G1[i] - Gx1eval[i]) for i in [0..3]]
+    I1 = [(e1 * G1[i] - Gx1eval[i]) for i in [0..3]]
 
     G2 = ((news - news*newt + 1)*x^3 + 3*news*(newr - newt)*x^2 + 3*news*newr*(newr - newt)*x - news*newt^2 + news*newr^3 - newt)
     Gx2eval = Kx((Gx2.subs(x=((x+b)/(c*x+d))) * (c*x+d)^3).numerator())
-    I2 = [(e * G2[i] - Gx2eval[i]) for i in [0..3]]
+    I2 = [(e2 * G2[i] - Gx2eval[i]) for i in [0..3]]
 
     H1 = x^2 + newr*x + newt
     Hx1eval = Kx((Hx1.subs(x=((x+b)/(c*x+d))) * (c*x+d)^2).numerator())
@@ -299,6 +300,7 @@ def BFT_evaluation(kernel, points):
     J = kernel[0].parent()
     C = J.curve()
     f = C.hyperelliptic_polynomials()[0]
+    assert C.hyperelliptic_polynomials()[1]==0
     rst, transform = get_rst_transform(kernel)
     a,b,c,d,e = transform
     transform_points = apply_transform([d,-b,-c,a,1/e^2], points, f, rst)
@@ -323,6 +325,7 @@ def isogeny_33(J_kernel, eval_points, n):
     C = J_kernel[0].parent().curve()
     J = C.jacobian()
     func = C.hyperelliptic_polynomials()[0]
+    assert C.hyperelliptic_polynomials()[1] == 0
     kummer_surface = KummerSurface(J)
     pos = 0
     indices = [0]
@@ -354,6 +357,7 @@ def isogeny_33(J_kernel, eval_points, n):
             new_aux = [JacMul(D, 3^ceil(gap/2)) for D in new_aux]
             kernel2 = new_aux
         J, kernel_aux = BFT_evaluation(kernel2, kernel_aux)
+        print(str(i) + "-th curve :", J.curve().clebsch_invariants())
     func = J.curve().hyperelliptic_polynomials()[0]
     return J, [J(KummerToJac(D, func)) for D in kernel_aux[:eval_length]]
 
@@ -391,6 +395,6 @@ def hash_new(message, B):
             new_aux = [JacMul(D, 3^ceil(gap/2)) for D in new_aux]
             kernel2 = new_aux
         J, kernel_aux = BFT_evaluation(kernel2, kernel_aux)
-        print("#" + str(i))
+        # print("#" + str(i))
     return J.curve().igusa_clebsch_invariants()
 
