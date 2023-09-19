@@ -11,4 +11,3 @@ K_temp.<x> = GF(prime)[]
 Fp.<Fp2_i> = GF(prime^4, modulus = x^4 - 6*x^2 + 13, impl='pari_ffelt')
 Fp_i = sqrt(Fp(-1))
 E0 = EllipticCurve(Fp, [0, 0, 0, 1, 0])
-E0_order = E0.gens()[0].order()
