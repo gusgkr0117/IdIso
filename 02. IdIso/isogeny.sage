@@ -26,7 +26,7 @@ def get_basis(E: EllipticCurve, N: Integer):
         Q = E.random_point() * ((prime^2-1)//N)
         check = True
         for i in range(len(factors)):
-            if ((N // factors[i][0]) * P).is_zero():
+            if ((N // factors[i][0]) * Q).is_zero():
                 check = False
                 break
         if not check : continue
@@ -38,6 +38,9 @@ def get_basis(E: EllipticCurve, N: Integer):
                 break
         if check : break
     
+    assert (N*P).is_zero() and (N*Q).is_zero()
+    assert P.weil_pairing(Q, N) != 1
+
     return P, Q
 
 # find a, b such that aP + bQ = R
@@ -290,6 +293,7 @@ def left_O0_ideal_to_isogeny_kernel(ideal: QuaternionAlgebraIdeal) -> EllipticCu
         return Q
 
     x = P_eval.discrete_log(Q_eval)
+    assert (Q_eval - P_eval * x).is_zero()
     return Q - Integer(x) * P
 
 #
