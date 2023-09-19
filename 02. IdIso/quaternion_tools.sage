@@ -1,5 +1,5 @@
 import random
-load('const.sage')
+# load('const.sage')
 
 
 def ideal_generator(ideal):
@@ -18,9 +18,8 @@ def AddIdeal(I1, I2):
 
 
 def IdealContains(L, a):
-    A1 = QA.ideal(O0.basis()).scale(a, left=False)
-    # print([L.basis()[j] - basis_for_quaternion_lattice(L.basis() + A1.basis())[j] for j in range(4)])
-    return [L.basis()[j] - basis_for_quaternion_lattice(L.basis() + A1.basis())[j] for j in range(4)] == [0, 0, 0, 0]
+    O_left = L.left_order()
+    return AddIdeal(L, QA.ideal(O_left.basis()).scale(a)) == L
 
 
 def GetRandomIdealElle(e=6):
