@@ -1,8 +1,7 @@
 import random
+load('const.sage')
 load('quaternion_tools.sage')
 load('isogeny.sage')
-load('richelot.sage')
-load('const.sage')
 load('../01. jacobian_isogeny/22_isogeny.sage')
 load('../01. jacobian_isogeny/33_isogeny.sage')
 
@@ -13,43 +12,9 @@ def cornacchia(d, m):
         return x, y
     except: raise Exception("No solution")
 
-# 1. Get Random Ideal of norm ell^e
-I = GetRandomIdealElle()
-assert(I.norm() == ell^6)
-
-
-# 2. Extract the first ideal factor I_1
-ellO0 = QA.ideal(O0.basis()).scale(ell)
-I1 = AddIdeal(I, ellO0)
-
-# 3. Compute corresponding isogeny
-phi1_kernel_generator = left_O0_ideal_to_isogeny_kernel(I1)
-phi1 = Isogeny(Fp(0), phi1_kernel_generator, 2^e1*3^e2*ell)
-assert(I1.norm() == ell)
-
-# 4. Get the codomain curve E1 and dual isogeny phi1_dual
-E1 = phi1.codomain_curve
-phi1_dual = phi1.dual_isogeny()
-
-# 4-1. Adjust the error [-1]
-cofactor = phi1_dual.domain_P.order() // 3^16
-T = cofactor * phi1_dual.codomain_P
-ellT = phi1.eval(T)
-if ellT != phi1.degree * cofactor * phi1_dual.domain_P:
-    phi1_dual.codomain_P *= -1
-    phi1_dual.codomain_Q *= -1
-    assert -ellT == phi1.degree * cofactor * phi1_dual.domain_P
-else: assert ellT == phi1.degree * cofactor * phi1_dual.domain_P
-
-T = cofactor * phi1.codomain_P
-ellT = phi1_dual.eval(T)
-assert ellT == phi1_dual.degree * cofactor * phi1.domain_P
-
 def GetAlphaBeta(I, N, O_basis):
     I_basis = GetReducedBasis(I.basis())
     I_generator = I_basis[2]
-    e1 = 148
-    e2 = 16
     gram = matrix([[1,0,0,0],[0,1,0,0],[0,0,prime,0],[0,0,0,prime]])
     M_O = matrix([vector(v.coefficient_tuple()) for v in O_basis])
     G = M_O * gram * M_O.transpose()
@@ -73,9 +38,9 @@ def GetAlphaBeta(I, N, O_basis):
     return alpha, beta
 
 def IdealToIsogenySmall(I, ell, isoChain, isoChainDual, e1, e2):
+    global Fp_i
+
     assert I.norm() == ell
-    I_gen = ideal_generator(I)
-    O_right = I.right_order()
     O_left = I.left_order()
     E_domain = isoChain.codomain_curve
     O_left_basis = GetReducedBasis(O_left.basis())
@@ -84,6 +49,12 @@ def IdealToIsogenySmall(I, ell, isoChain, isoChainDual, e1, e2):
 
     # Computing alpha and beta
     alpha, beta = GetAlphaBeta(I, N, O_left_basis)
+    assert IdealContains(I, alpha), "alpha is not contained in the ideal"
+    assert IdealContains(QA.ideal(O_left.basis()), beta), "beta is not contained in the ideal"
+    print(alpha)
+    print(alpha.reduced_norm().factor())
+    print(beta)
+    print(beta.reduced_norm().factor())
 
     # Computing x = n(beta)^-1 mod N
     N_alpha = alpha.reduced_norm()
@@ -93,9 +64,19 @@ def IdealToIsogenySmall(I, ell, isoChain, isoChainDual, e1, e2):
     # Get basis
     P, Q = get_basis(E_domain, N)
 
+    # Endomorphism TEST
+    # testv1, testv2 = QA(3+2*QA_j+QA_k), QA(7+QA_j+3*QA_k)
+    testv1, testv2 = alpha, beta
+    test1_P = eval_endomorphism(testv1, P, N, isoChain, isoChainDual)
+    test1_P = eval_endomorphism(testv2*x_value, test1_P, N, isoChain, isoChainDual)
+    test2_P = eval_endomorphism(x_value*testv2*testv1, P, N, isoChain, isoChainDual)
+    assert test2_P == test1_P, "eval_endomorphism error!"
+
     # Evaluate the endomorphism
-    psi_P = eval_endomorphism(x_value * alpha * beta, P, N, isoChain, isoChainDual)
-    psi_Q = eval_endomorphism(x_value * alpha * beta, Q, N, isoChain, isoChainDual)
+    #Fp_i = -Fp_i
+    psi_P = eval_endomorphism(x_value * beta * alpha, P, N, isoChain, isoChainDual)
+    psi_Q = eval_endomorphism(x_value * beta * alpha, Q, N, isoChain, isoChainDual)
+    #Fp_i = -Fp_i
 
     # Check if the kernel is maximally isotropic
     points = [P, Q, psi_P, psi_Q]
@@ -104,33 +85,41 @@ def IdealToIsogenySmall(I, ell, isoChain, isoChainDual, e1, e2):
     [ell_P, ell_Q] = get_basis(E_domain, ell)
     points = points + [ell_P, ell_Q]
 
+    # load('../01. jacobian_isogeny/22_isogeny.sage')
     # Computing the (2,2) and (3,3) - isogenies between hyperelliptic curves
     ## 1. (2,2)-Gluing
     points = [(points[0], points[2]), (points[1], points[3]), (points[4], E_domain(0)), (points[5], E_domain(0))]
     kernel2 = [(3^e2*2^(e1-1)*D[0], 3^e2*2^(e1-1)*D[1]) for D in [points[0], points[1]]]
     h, points, isog = Gluing22(E_domain, E_domain, kernel2, eval_points = points)
-    
+    print("after gluing :", h.absolute_igusa_invariants_kohel())
+
     ## 2. Richelot (2,2)-isogenies
     kernel22 = [3^e2 * 2 * D for D in points[:2]]
     j, points = isogeny_22(kernel22, points, e1-2)
-    
+    print("after 22 :", j.curve().absolute_igusa_invariants_kohel())
+
+    # load('../01. jacobian_isogeny/33_isogeny.sage')
     ## 3. BFT (3,3)-isogenies
     kernel33 = [2 * D for D in points[:2]]
     j, points = isogeny_33(kernel33, points, e2)
-    
+    print("after 33 :", j.curve().absolute_igusa_invariants_kohel())
+
     ## 4. Check if the curve is splitting
     G1 = points[0][0]
     G2 = points[1][0]
     h = j.curve().hyperelliptic_polynomials()[0]
     G3, r3 = h.quo_rem(G1*G2)
-    assert r3 == 0
+    assert r3 == 0, "r3 is not zero"
     delta = Matrix(G.padded_list(3) for G in (G1, G2, G3))
     assert delta.determinant() == 0, "The curve is not splitted"
+
+    print("It is splitting!!")
 
     ## 5. Splitting the curve
     kernel22 = [D for D in points[:2]]
     prodE, eval_points = Splitting22(kernel22, [points[2], points[3]])
-    assert E_domain.j_invariant() in [T.j_invariant() for T in prodE]
+    print(prodE)
+    assert E_domain.j_invariant() in [T.j_invariant() for T in prodE], "no E_domain"
 
     ## 6. Compute the corresponding kernel
     P, Q = E_domain(0), E_domain(0)
@@ -139,28 +128,76 @@ def IdealToIsogenySmall(I, ell, isoChain, isoChainDual, e1, e2):
     else:
         P, Q = eval_points[0][1], eval_points[1][1]
 
+    assert (ell*P).is_zero() and (ell*Q).is_zero()
+    print(eval_points)
+    assert P.curve().j_invariant() == E_domain.j_invariant()
+    assert Q.curve().j_invariant() == E_domain.j_invariant()
+    
     kernel = E_domain(0)
-    if P.is_zero(): kernel = ell_Q
-    elif Q.is_zero(): kernel = ell_P
+    if P.is_zero(): kernel = ell_P
+    elif Q.is_zero(): kernel = ell_Q
     else:
-        assert P.weil_pairing(Q, P.order()) == 1
+        assert P.weil_pairing(Q, ell) == 1, "P, Q are not linear"
 
         r = P.discrete_log(Q)
         kernel = ell_P * r - ell_Q
     
     return kernel
 
-# 1. Compute the right order O1
-O1 = I1.right_order()
+I2_casenum = 2
+I1_casenum = 10
+for I1_case in range(I1_casenum):
+    print("#"*5 + " case %d "%(I1_case) + "#"*5)
+    # 1. Get Random Ideal of norm ell^e
+    I = GetRandomIdealElle()
+    assert(I.norm() == ell^6)
+    print("I:", I.basis())
 
-# 2. Extract the next ideal factor
-I2 = I1.conjugate() * I
-I2 = I2.scale(1/ell)
-ellO1 = QA.ideal(O1.basis()).scale(ell)
-I2 = AddIdeal(I2, ellO1)
 
-assert(I2.norm() == ell and I2.left_order() == O1)
+    # 2. Extract the first ideal factor I_1
+    ellO0 = QA.ideal(O0.basis()).scale(ell)
+    I1 = AddIdeal(I, ellO0)
+    print("I1 :", I1)
 
-isog1 = IsogenyChain([phi1])
-isog1_dual = IsogenyChain([phi1_dual])
-next_kernel = IdealToIsogenySmall(I2, ell, isog1, isog1_dual, 148, 16)
+    # 3. Compute corresponding isogeny
+    phi1_kernel_generator = left_O0_ideal_to_isogeny_kernel(I1)        
+    phi1 = Isogeny(Fp(0), phi1_kernel_generator, 2^e1*3^e2*ell)
+    assert(I1.norm() == ell)
+
+    # 4. Get the codomain curve E1 and dual isogeny phi1_dual
+    E1 = phi1.codomain_curve
+    phi1_dual = phi1.dual_isogeny()
+    print("E1 :", E1)
+
+    # 4-1. Adjust the error [-1]
+    T = phi1_dual.codomain_P
+    ellT = phi1.eval(T)
+    if ellT != phi1.degree * phi1_dual.domain_P:
+        phi1_dual.codomain_P *= -1
+        phi1_dual.codomain_Q *= -1
+        assert -ellT == phi1.degree * phi1_dual.domain_P
+    else: assert ellT == phi1.degree * phi1_dual.domain_P
+
+    T = phi1.codomain_P
+    ellT = phi1_dual.eval(T)
+    assert ellT == phi1_dual.degree * phi1.domain_P
+
+    # 1. Compute the right order O1
+    O1 = I1.right_order()
+
+    # 2. Extract the next ideal factor
+    I2 = I1.conjugate() * I
+    I2 = I2.scale(1/ell)
+    ellO1 = QA.ideal(O1.basis()).scale(ell)
+    I2 = AddIdeal(I2, ellO1)
+
+    assert(I2.norm() == ell and I2.left_order() == O1)
+
+    isog1 = IsogenyChain([phi1])
+    isog1_dual = IsogenyChain([phi1_dual])
+    try:
+        next_kernel = IdealToIsogenySmall(I2, ell, isog1, isog1_dual, 148, 16)
+        print("success")
+    except Exception as e:
+        print("failed")
+        print(e)

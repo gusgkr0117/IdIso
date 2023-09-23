@@ -79,4 +79,6 @@ def O0_coordinate(x):
     x_vector = vector(x.coefficient_tuple())
     O0_basis = [v.coefficient_tuple() for v in O0.basis()]
     M = matrix(O0_basis)
-    return (x_vector * M.inverse())
+    result = (x_vector * M.inverse())
+    assert result * M == x_vector
+    return result

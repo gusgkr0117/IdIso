@@ -94,7 +94,7 @@ def get_cubic_Gx(D):
     return Gx
 
 def get_rst_transform(Ti):
-    Knew.<newr, news, newt, b, c, d, e1, e2, newtinv> = PolynomialRing(Fp, 9, order='degrevlex')
+    Knew.<newr, news, newt, b, c, d, e, newtinv> = PolynomialRing(Fp, 8, order='degrevlex')
     Kx.<x> = PolynomialRing(Knew)
 
     T1, T2 = Ti[0], Ti[1]
@@ -107,11 +107,11 @@ def get_rst_transform(Ti):
 
     G1 = ((news - news*newt - 1)*x^3 + 3*news*(newr - newt)*x^2 + 3*news*newr*(newr - newt)*x - news*newt^2 + news*newr^3 + newt)
     Gx1eval = Kx((Gx1.subs(x=((x+b)/(c*x+d))) * (c*x+d)^3).numerator())
-    I1 = [(e1 * G1[i] - Gx1eval[i]) for i in [0..3]]
+    I1 = [(e * G1[i] - Gx1eval[i]) for i in [0..3]]
 
     G2 = ((news - news*newt + 1)*x^3 + 3*news*(newr - newt)*x^2 + 3*news*newr*(newr - newt)*x - news*newt^2 + news*newr^3 - newt)
     Gx2eval = Kx((Gx2.subs(x=((x+b)/(c*x+d))) * (c*x+d)^3).numerator())
-    I2 = [(e2 * G2[i] - Gx2eval[i]) for i in [0..3]]
+    I2 = [(e * G2[i] - Gx2eval[i]) for i in [0..3]]
 
     H1 = x^2 + newr*x + newt
     Hx1eval = Kx((Hx1.subs(x=((x+b)/(c*x+d))) * (c*x+d)^2).numerator())
@@ -357,7 +357,8 @@ def isogeny_33(J_kernel, eval_points, n):
             new_aux = [JacMul(D, 3^ceil(gap/2)) for D in new_aux]
             kernel2 = new_aux
         J, kernel_aux = BFT_evaluation(kernel2, kernel_aux)
-        print(str(i) + "-th curve :", J.curve().clebsch_invariants())
+        
+        # print(str(i) + "-th curve :", J.curve().absolute_igusa_invariants_kohel())
     func = J.curve().hyperelliptic_polynomials()[0]
     return J, [J(KummerToJac(D, func)) for D in kernel_aux[:eval_length]]
 
