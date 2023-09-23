@@ -358,7 +358,7 @@ def isogeny_33(J_kernel, eval_points, n):
             kernel2 = new_aux
         J, kernel_aux = BFT_evaluation(kernel2, kernel_aux)
         
-        print(str(i) + "-th curve :", J.curve().absolute_igusa_invariants_kohel())
+        # print(str(i) + "-th curve :", J.curve().absolute_igusa_invariants_kohel())
     func = J.curve().hyperelliptic_polynomials()[0]
     return J, [J(KummerToJac(D, func)) for D in kernel_aux[:eval_length]]
 
