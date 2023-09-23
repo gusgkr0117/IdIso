@@ -38,8 +38,14 @@ def get_basis(E: EllipticCurve, N: Integer):
                 break
         if check : break
     
+    pairing_value = P.weil_pairing(Q, N)
+    for i in range(len(factors)):
+        cofactor = N // factors[i][0]
+        assert pairing_value^cofactor != 1
+
+
     assert (N*P).is_zero() and (N*Q).is_zero()
-    assert P.weil_pairing(Q, N) != 1
+    assert pairing_value^N == 1
 
     return P, Q
 
@@ -155,6 +161,7 @@ class Isogeny:
         assert self.domain_curve.is_on_curve(kernel[0], kernel[1]) or kernel.is_zero(
         ), "The kernel point must be on the curve"
         self.domain_coeff, self.kernel, self.basis_order = coeff, kernel, basis_order
+        assert (ell * kernel).is_zero(), "The degree of isogeny can be ell only"
         self.__initial_computation()
 
     def velu_eval(self, point: EllipticCurvePoint) -> EllipticCurvePoint:
@@ -246,6 +253,7 @@ def O0_eval_endomorphism(O0_element: QuaternionAlgebraElement, point: EllipticCu
     baseP, baseQ = get_basis(E0, order * 2)
     a, b = xyBIDIM(baseP, baseQ, point, order*2)
 
+    assert a%2 == 0 and b%2 == 0
     sqrt_point = Integer(a/2)*baseP + Integer(b/2)*baseQ
     assert point == 2*sqrt_point
 
@@ -263,7 +271,7 @@ def O0_eval_endomorphism(O0_element: QuaternionAlgebraElement, point: EllipticCu
         elif j == 2:
             Q = E0(point[0] ^ prime, point[1] ^ prime)
         elif j == 3:
-            Q = E0((-point[0]) ^ prime, (point[1]*Fp_i) ^ prime)
+            Q = E0((-point[0]) ^ prime, -(point[1]*Fp_i) ^ prime)
         R = R + Integer(coeff[j]) * Q
 
     assert (R * order).is_zero()
@@ -305,6 +313,10 @@ def eval_endomorphism(O1_element, point: EllipticCurvePoint, order: Integer, E0_
     ), "point is not on the curve E1"
     if point.is_zero():
         return E1(0)
+    
+    assert (order * point).is_zero(), "The order is wrong"
+    assert E0_isogeny.chain[0].basis_order % order == 0, "The point can't be evaluated using given isogeny"
+    assert E0_dual_isogeny.chain[0].basis_order % order == 0, "The point can't be evaluated using given isogeny"
 
     isogeny_degree = E0_isogeny.degree
     assert gcd(order, isogeny_degree) == 1, "The point cannot be evaluated"
@@ -312,6 +324,8 @@ def eval_endomorphism(O1_element, point: EllipticCurvePoint, order: Integer, E0_
     N_O1_element = isogeny_degree * O1_element
     coordinate = O0_coordinate(N_O1_element)
     O0_basis = O0.basis()
+
+    assert N_O1_element == coordinate[0]*O0_basis[0] + coordinate[1]*O0_basis[1] + coordinate[2]*O0_basis[2] + coordinate[3]*O0_basis[3], "The coordinate is wrong"
 
     result_point = E1(0)
 
