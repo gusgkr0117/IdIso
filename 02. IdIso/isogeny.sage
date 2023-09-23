@@ -231,8 +231,18 @@ class IsogenyChain:
         for deg in [c.degree for c in self.chain]:
             self.degree *= deg
 
-    def append(self, forward: Isogeny):
+    def append_forward(self, forward: Isogeny):
+        assert forward.domain_curve.defining_polynomial() == self.codomain_curve.defining_polynomial(), "The codomain and domain curve don't match"
         self.chain.append(forward)
+        self.codomain_curve = forward.codomain_curve
+        self.degree *= forward.degree
+
+    def append_backward(self, backward: Isogeny):
+        assert backward.codomain_curve.defining_polynomial() == self.domain_curve.defining_polynomial(), "The codomain and domain curve don't match"
+        self.chain.insert(0, backward)
+        self.domain_curve = backward.domain_curve
+        self.degree *= backward.degree
+
 
     def eval(self, point: EllipticCurvePoint) -> EllipticCurvePoint:
         for isog in self.chain:
