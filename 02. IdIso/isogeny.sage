@@ -314,6 +314,40 @@ def left_O0_ideal_to_isogeny_kernel(ideal: QuaternionAlgebraIdeal) -> EllipticCu
     assert (Q_eval - P_eval * x).is_zero()
     return Q - Integer(x) * P
 
+def eval_endomorphism_by_O0(O0_element, point: EllipticCurvePoint, order: Integer, E0_isogeny: IsogenyChain, E0_dual_isogeny: IsogenyChain) -> EllipticCurvePoint:
+    E1 = E0_isogeny.codomain_curve
+    assert E1.is_on_curve(point[0], point[1]) or point.is_zero(), "point is not on the curve E1"
+    if point.is_zero(): return E1(0)
+
+    assert (order * point).is_zero(), "The order is wrong"
+    assert E0_isogeny.chain[0].basis_order % order == 0, "The point can't be evaluate using given isogeny"
+    assert E0_dual_isogeny.chain[0].basis_order % order == 0, "The point can't be evaluated using given isogeny"
+
+    isogeny_degree = E0_isogeny.degree
+    assert gcd(order, isogeny_degree) == 1, "The point cannot be evaluated"
+
+    coordinate = O0_coordinate(O0_element)
+    O0_basis = O0.basis()
+
+    assert O0_element == coordinate[0]*O0_basis[0] + coordinate[1]*O0_basis[1] + coordinate[2]*O0_basis[2] + coordinate[3]*O0_basis[3], "The coordinate is wrong"
+
+    result_point = E1(0)
+
+    for i in range(4):
+        if coordinate[i] == 0:
+            continue
+        eval_point = point
+        eval_point = E0_dual_isogeny.eval(eval_point)
+        assert E0_dual_isogeny.codomain_curve.is_on_curve(
+            eval_point[0], eval_point[1]), "Unreachable : point is not on E0"
+        eval_point = O0_eval_endomorphism(O0_basis[i], eval_point, order)
+        eval_point = E0_isogeny.eval(eval_point)
+        r = (mod(isogeny_degree, order) ^ (-1))
+        result_point = result_point + \
+            Integer(coordinate[i]) * Integer(r) * eval_point
+
+    return result_point
+
 #
 # Push Endomorphism through an isogeny from E0
 #
