@@ -262,7 +262,7 @@ def Splitting22(J_kernel, eval_points):
             # Reduce Mumford coordinates to get a E1 point
             V1 = V1 % U1
             U1red = (p1 - V1**2) // U1
-            if U1red[1] == 0 or V1 == 0: result1 = E1(0)
+            if U1red[1] == 0: Exception("U1red must be of degree 2")
             else:
                 xP1 = -U1red[0] / U1red[1]
                 yP1 = V1(xP1)
@@ -279,17 +279,19 @@ def Splitting22(J_kernel, eval_points):
         V21 = x**2 * (v1 * (s*s-2*p) + v0*s)
         V20 = p2 + x**4 * (p*(v1**2*p + v1*v0*s + v0**2))
         # V21 * y = V20
-        _, V21inv, _ = V21.xgcd(U2)
-        V2 = (V21inv * V20) % U2
-        # assert V2**2 % U2 == p2 % U2
-        # Reduce coordinates
-        U2red = (p2 - V2**2) // U2
-        if U2red == 0 or V2 == 0 : result2 = E2(0)
+        if V21 == 0 : result2 = E2(0)
         else:
-            xP2 = -U2red[0] / U2red[1]
-            yP2 = V2(xP2)
-            assert yP2**2 == p2(xP2)
-            result2 = E2(morphE2(xP2, yP2))
+            _, V21inv, _ = V21.xgcd(U2)
+            V2 = (V21inv * V20) % U2
+            assert V2**2 % U2 == p2 % U2
+            # Reduce coordinates
+            U2red = (p2 - V2**2) // U2
+            if U2red[1] == 0 : raise Exception("U2red must be of degree 2")
+            else:
+                xP2 = -U2red[0] / U2red[1]
+                yP2 = V2(xP2)
+                assert yP2**2 == p2(xP2)
+                result2 = E2(morphE2(xP2, yP2))
 
         return result1, result2
 
