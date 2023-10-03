@@ -19,13 +19,14 @@ def AddIdeal(I1, I2):
 
 def IdealContains(L, a):
     O_left = L.left_order()
-    return AddIdeal(L, QA.ideal(O_left.basis()).scale(a)) == L
+    M = AddIdeal(L, QA.ideal(O_left.basis()).scale(a, left=False))
+    return GetReducedBasis(M.basis()) == GetReducedBasis(L.basis())
 
 
-def GetRandomIdealElle(e=6):
+def GetRandomIdealElle(exp):
     L0 = QA.ideal(O0.basis())
     O2 = QA.ideal(O0.basis()).scale(ell)
-    for ei in range(e):
+    for ei in range(exp):
         basis = L0.basis()
         while True:
             v = [random.randint(-1000, 1000) for i in range(4)]
